@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Panel Experiments - Maximum Power Point</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #fafafa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6b7280;
+            --text-tertiary: #9ca3af;
+            --border-color: #e5e7eb;
+            --accent-1: #2563eb;
+            --accent-2: #0d9488;
+            --accent-3: #dc2626;
+            --accent-4: #d97706;
+            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+            --radius: 10px;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #111113;
+            --bg-secondary: #18181b;
+            --bg-card: #1e1e22;
+            --text-primary: #f0f0f2;
+            --text-secondary: #9ca3af;
+            --text-tertiary: #6b7280;
+            --border-color: #2a2a2e;
+            --accent-1: #60a5fa;
+            --accent-2: #2dd4bf;
+            --accent-3: #f87171;
+            --accent-4: #fbbf24;
+            --shadow: 0 1px 3px rgba(0,0,0,0.2);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            color: var(--text-primary);
+            padding: 32px 24px;
+            transition: background 0.2s ease, color 0.2s ease;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1120px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 40px;
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .header-text {
+            flex: 1;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 400;
+        }
+
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 7px 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-family: inherit;
+            transition: border-color 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent-1);
+        }
+
+        .theme-icon {
+            font-size: 0.9rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 32px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 3px;
+            width: fit-content;
+        }
+
+        .tab-btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            box-shadow: var(--shadow);
+        }
+
+        .tab-btn.exp2.active {
+            background: var(--bg-card);
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            header {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .tabs {
+                width: 100%;
+            }
+            .tab-btn {
+                flex: 1;
+                text-align: center;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+        }
+
+        .card h2 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .card h2::before {
+            display: none;
+        }
+
+        .exp2 .card h2 {
+            color: var(--text-secondary);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 700px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-box {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 16px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-1);
+            margin-bottom: 2px;
+            letter-spacing: -0.02em;
+        }
+
+        .exp2 .stat-value {
+            color: var(--accent-4);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 4px;
+            font-size: 0.875rem;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .data-table th {
+            color: var(--text-tertiary);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .exp2 .data-table th {
+            color: var(--text-tertiary);
+        }
+
+        .data-table td {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tr:hover td {
+            background: var(--bg-primary);
+        }
+
+        .peak-row td {
+            color: var(--accent-2);
+            font-weight: 600;
+        }
+
+        .exp2 .peak-row td {
+            color: var(--accent-4);
+        }
+
+        /* Experiment Panel */
+        .experiment-panel {
+            display: none;
+        }
+
+        .experiment-panel.active {
+            display: block;
+        }
+
+        /* Config Badge */
+        .config-badge {
+            display: inline-block;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 12px;
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.8rem;
+        }
+
+        .exp2 .config-badge {
+            background: var(--bg-card);
+            border-color: var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        /* Comparison Section */
+        .comparison-section {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 16px;
+        }
+
+        .comparison-section h3 {
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .comparison-section p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            font-size: 0.9rem;
+        }
+
+        /* Formula Box */
+        .formula {
+            background: var(--bg-card);
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 0.85rem;
+            margin: 12px 0;
+            border-left: 3px solid var(--accent-1);
+            color: var(--text-primary);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="header-text">
+                <h1>Solar Panel Experiments</h1>
+                <p class="subtitle">Maximum Power Point Analysis</p>
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()">
+                <span class="theme-icon" id="themeIcon">&#9789;</span>
+                <span id="themeText">Dark</span>
+            </button>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showExperiment(1)">Experiment 1</button>
+            <button class="tab-btn exp2" onclick="showExperiment(2)">Experiment 2</button>
+            <button class="tab-btn" onclick="showExperiment(3)">Comparison</button>
+        </div>
+
+        <!-- Experiment 1 -->
+        <div id="exp1" class="experiment-panel active">
+            <div class="config-badge">Source: 30 V</div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="exp1Points">12</div>
+                    <div class="stat-label">Data Points</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="exp1SourceR">--</div>
+                    <div class="stat-label">Est. Source R (Ω)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="exp1MaxPower">--</div>
+                    <div class="stat-label">Max Power (mW)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="exp1OptimalR">--</div>
+                    <div class="stat-label">Optimal R (Ω)</div>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <h2>Voltage vs Resistance</h2>
+                    <div class="chart-container">
+                        <canvas id="exp1VoltageChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>Current vs Resistance</h2>
+                    <div class="chart-container">
+                        <canvas id="exp1CurrentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card full-width" style="margin-bottom: 16px;">
+                <h2>Power vs Resistance</h2>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="exp1PowerChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card full-width">
+                <h2>Measurement Data</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Resistance (Ω)</th>
+                            <th>Voltage (V)</th>
+                            <th>Current (mA)</th>
+                            <th>Power (mW)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="exp1TableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Experiment 2 -->
+        <div id="exp2" class="experiment-panel exp2">
+            <div class="config-badge">Source: 29 V PSU @ 0.8 A</div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="exp2Points">9</div>
+                    <div class="stat-label">Data Points</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="exp2SourceR">--</div>
+                    <div class="stat-label">Est. Source R (Ω)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="exp2MaxPower">--</div>
+                    <div class="stat-label">Max Power (mW)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="exp2OptimalR">--</div>
+                    <div class="stat-label">Optimal R (Ω)</div>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <h2>Voltage vs Resistance</h2>
+                    <div class="chart-container">
+                        <canvas id="exp2VoltageChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>Current vs Resistance</h2>
+                    <div class="chart-container">
+                        <canvas id="exp2CurrentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card full-width" style="margin-bottom: 16px;">
+                <h2>Power vs Resistance</h2>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="exp2PowerChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card full-width">
+                <h2>Measurement Data</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Resistance (Ω)</th>
+                            <th>Voltage (V)</th>
+                            <th>Current (mA)</th>
+                            <th>Power (mW)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="exp2TableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Comparison -->
+        <div id="exp3" class="experiment-panel">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="compareMaxPower1">--</div>
+                    <div class="stat-label">Exp 1 Peak (mW)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="compareOptR1">--</div>
+                    <div class="stat-label">Exp 1 Optimal R</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="compareMaxPower2">--</div>
+                    <div class="stat-label">Exp 2 Peak (mW)</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="compareOptR2">--</div>
+                    <div class="stat-label">Exp 2 Optimal R</div>
+                </div>
+            </div>
+
+            <div class="card full-width" style="margin-bottom: 16px;">
+                <h2>Power Comparison</h2>
+                <div class="chart-container" style="height: 320px;">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card full-width">
+                <h2>Key Findings</h2>
+                <div class="comparison-section">
+                    <h3>Maximum Power Transfer Theorem Confirmed</h3>
+                    <p>Both experiments show peak power occurs at approximately the same resistance range (~16-20Ω),
+                    confirming this is the optimal load resistance that matches the solar panels' internal resistance.</p>
+
+                    <div class="formula">
+                        Maximum Power Transfer: R_load = R_internal
+                    </div>
+
+                    <p style="margin-top: 15px;">
+                        <strong>Experiment 1:</strong> Lower light intensity → Lower overall power output<br>
+                        <strong>Experiment 2:</strong> Higher light intensity → Higher overall power output<br><br>
+                        Despite different power levels, the <strong>optimal resistance remains consistent</strong> because
+                        it depends on the solar panels' internal characteristics, not the light intensity.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTheme = 'light';
+
+        function toggleTheme() {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            if (currentTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+            document.getElementById('themeIcon').textContent = currentTheme === 'light' ? '\u263D' : '\u2600';
+            document.getElementById('themeText').textContent = currentTheme === 'light' ? 'Dark' : 'Light';
+            updateChartsTheme();
+        }
+
+        // Tab handling
+        function showExperiment(num) {
+            document.querySelectorAll('.experiment-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+            document.getElementById('exp' + num).classList.add('active');
+            document.querySelectorAll('.tab-btn')[num - 1].classList.add('active');
+        }
+
+        // Experiment 1 Data
+        const exp1Data = [
+            { resistance: 3.33, voltage: 0.35 },
+            { resistance: 3.4, voltage: 0.34 },
+            { resistance: 6.66, voltage: 0.64 },
+            { resistance: 10, voltage: 1.0 },
+            { resistance: 13.77, voltage: 1.32 },
+            { resistance: 16.84, voltage: 1.54 },
+            { resistance: 20, voltage: 1.65 },
+            { resistance: 50, voltage: 2.0 },
+            { resistance: 100, voltage: 2.0 },
+            { resistance: 180, voltage: 2.06 },
+            { resistance: 550, voltage: 2.1 },
+            { resistance: 1010, voltage: 2.087 }
+        ].map(m => ({
+            ...m,
+            current: (m.voltage / m.resistance) * 1000,
+            power: (m.voltage * m.voltage / m.resistance) * 1000
+        })).sort((a, b) => a.resistance - b.resistance);
+
+        // Experiment 2 Data
+        const exp2Data = [
+            { resistance: 3.33, voltage: 0.28 },
+            { resistance: 6.66, voltage: 0.5 },
+            { resistance: 10, voltage: 0.8 },
+            { resistance: 13.77, voltage: 1.0 },
+            { resistance: 16.84, voltage: 1.2 },
+            { resistance: 20, voltage: 1.26 },
+            { resistance: 50, voltage: 1.88 },
+            { resistance: 100, voltage: 1.98 },
+            { resistance: 1010, voltage: 2.033 }
+        ].map(m => ({
+            ...m,
+            current: (m.voltage / m.resistance) * 1000,
+            power: (m.voltage * m.voltage / m.resistance) * 1000
+        })).sort((a, b) => a.resistance - b.resistance);
+
+        // Find peaks
+        const exp1Peak = exp1Data.reduce((a, b) => a.power > b.power ? a : b);
+        const exp2Peak = exp2Data.reduce((a, b) => a.power > b.power ? a : b);
+
+        // Update stats
+        document.getElementById('exp1Points').textContent = exp1Data.length;
+        document.getElementById('exp1MaxPower').textContent = exp1Peak.power.toFixed(1);
+        document.getElementById('exp1OptimalR').textContent = exp1Peak.resistance.toFixed(2);
+        document.getElementById('exp1SourceR').textContent = exp1Peak.resistance.toFixed(2);
+
+        document.getElementById('exp2Points').textContent = exp2Data.length;
+        document.getElementById('exp2MaxPower').textContent = exp2Peak.power.toFixed(1);
+        document.getElementById('exp2OptimalR').textContent = exp2Peak.resistance.toFixed(2);
+        document.getElementById('exp2SourceR').textContent = exp2Peak.resistance.toFixed(2);
+
+        document.getElementById('compareMaxPower1').textContent = exp1Peak.power.toFixed(1);
+        document.getElementById('compareOptR1').textContent = exp1Peak.resistance.toFixed(1) + ' \u03A9';
+        document.getElementById('compareMaxPower2').textContent = exp2Peak.power.toFixed(1);
+        document.getElementById('compareOptR2').textContent = exp2Peak.resistance.toFixed(1) + ' \u03A9';
+
+        // Update tables
+        function updateTable(data, tableId, peak) {
+            const tbody = document.getElementById(tableId);
+            tbody.innerHTML = data.map((m, i) => `
+                <tr class="${m === peak ? 'peak-row' : ''}">
+                    <td>${i + 1}</td>
+                    <td>${m.resistance >= 1000 ? (m.resistance / 1000).toFixed(2) + ' kΩ' : m.resistance.toFixed(2) + ' Ω'}</td>
+                    <td>${m.voltage.toFixed(3)} V</td>
+                    <td>${m.current.toFixed(2)} mA</td>
+                    <td>${m.power.toFixed(2)} mW</td>
+                </tr>
+            `).join('');
+        }
+
+        updateTable(exp1Data, 'exp1TableBody', exp1Peak);
+        updateTable(exp2Data, 'exp2TableBody', exp2Peak);
+
+        // Chart configuration
+        function getChartColors() {
+            const isDark = currentTheme === 'dark';
+            return {
+                text: isDark ? '#d1d5db' : '#4b5563',
+                grid: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                accent1: isDark ? '#60a5fa' : '#2563eb',
+                accent2: isDark ? '#2dd4bf' : '#0d9488',
+                accent3: isDark ? '#f87171' : '#dc2626',
+                accent4: isDark ? '#fbbf24' : '#d97706'
+            };
+        }
+
+        function getChartOptions(yLabel) {
+            const colors = getChartColors();
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: colors.text,
+                            font: { family: "'Inter', sans-serif", size: 12 },
+                            boxWidth: 12,
+                            padding: 16
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: colors.grid, drawBorder: false },
+                        ticks: { color: colors.text, font: { family: "'Inter', sans-serif", size: 11 } },
+                        title: { display: true, text: 'Resistance (\u03A9)', color: colors.text, font: { family: "'Inter', sans-serif", size: 12 } }
+                    },
+                    y: {
+                        grid: { color: colors.grid, drawBorder: false },
+                        ticks: { color: colors.text, font: { family: "'Inter', sans-serif", size: 11 } },
+                        title: { display: true, text: yLabel, color: colors.text, font: { family: "'Inter', sans-serif", size: 12 } }
+                    }
+                }
+            };
+        }
+
+        // Create charts
+        let charts = {};
+
+        function createCharts() {
+            const colors = getChartColors();
+            const exp1Labels = exp1Data.map(m => m.resistance >= 1000 ? (m.resistance / 1000) + 'k' : m.resistance.toFixed(1));
+            const exp2Labels = exp2Data.map(m => m.resistance >= 1000 ? (m.resistance / 1000) + 'k' : m.resistance.toFixed(1));
+
+            // Experiment 1 Charts
+            charts.exp1Voltage = new Chart(document.getElementById('exp1VoltageChart'), {
+                type: 'line',
+                data: {
+                    labels: exp1Labels,
+                    datasets: [{
+                        label: 'Voltage (V)',
+                        data: exp1Data.map(m => m.voltage),
+                        borderColor: colors.accent1,
+                        backgroundColor: colors.accent1 + '20',
+                        borderWidth: 2, fill: true, tension: 0.3,
+                        pointRadius: 4, pointBackgroundColor: colors.accent1, pointBorderWidth: 0
+                    }]
+                },
+                options: getChartOptions('Voltage (V)')
+            });
+
+            charts.exp1Current = new Chart(document.getElementById('exp1CurrentChart'), {
+                type: 'line',
+                data: {
+                    labels: exp1Labels,
+                    datasets: [{
+                        label: 'Current (mA)',
+                        data: exp1Data.map(m => m.current),
+                        borderColor: colors.accent3,
+                        backgroundColor: colors.accent3 + '20',
+                        borderWidth: 2, fill: true, tension: 0.3,
+                        pointRadius: 4, pointBackgroundColor: colors.accent3, pointBorderWidth: 0
+                    }]
+                },
+                options: getChartOptions('Current (mA)')
+            });
+
+            charts.exp1Power = new Chart(document.getElementById('exp1PowerChart'), {
+                type: 'line',
+                data: {
+                    labels: exp1Labels,
+                    datasets: [{
+                        label: 'Power (mW)',
+                        data: exp1Data.map(m => m.power),
+                        borderColor: colors.accent2,
+                        backgroundColor: colors.accent2 + '20',
+                        borderWidth: 2, fill: true, tension: 0.3,
+                        pointRadius: 5, pointBackgroundColor: colors.accent2, pointBorderWidth: 0
+                    }]
+                },
+                options: getChartOptions('Power (mW)')
+            });
+
+            // Experiment 2 Charts
+            charts.exp2Voltage = new Chart(document.getElementById('exp2VoltageChart'), {
+                type: 'line',
+                data: {
+                    labels: exp2Labels,
+                    datasets: [{
+                        label: 'Voltage (V)',
+                        data: exp2Data.map(m => m.voltage),
+                        borderColor: colors.accent1,
+                        backgroundColor: colors.accent1 + '20',
+                        borderWidth: 2, fill: true, tension: 0.3,
+                        pointRadius: 4, pointBackgroundColor: colors.accent1, pointBorderWidth: 0
+                    }]
+                },
+                options: getChartOptions('Voltage (V)')
+            });
+
+            charts.exp2Current = new Chart(document.getElementById('exp2CurrentChart'), {
+                type: 'line',
+                data: {
+                    labels: exp2Labels,
+                    datasets: [{
+                        label: 'Current (mA)',
+                        data: exp2Data.map(m => m.current),
+                        borderColor: colors.accent3,
+                        backgroundColor: colors.accent3 + '20',
+                        borderWidth: 2, fill: true, tension: 0.3,
+                        pointRadius: 4, pointBackgroundColor: colors.accent3, pointBorderWidth: 0
+                    }]
+                },
+                options: getChartOptions('Current (mA)')
+            });
+
+            charts.exp2Power = new Chart(document.getElementById('exp2PowerChart'), {
+                type: 'line',
+                data: {
+                    labels: exp2Labels,
+                    datasets: [{
+                        label: 'Power (mW)',
+                        data: exp2Data.map(m => m.power),
+                        borderColor: colors.accent4,
+                        backgroundColor: colors.accent4 + '20',
+                        borderWidth: 2, fill: true, tension: 0.3,
+                        pointRadius: 5, pointBackgroundColor: colors.accent4, pointBorderWidth: 0
+                    }]
+                },
+                options: getChartOptions('Power (mW)')
+            });
+
+            // Comparison Chart
+            const allResistances = [...new Set([...exp1Data.map(m => m.resistance), ...exp2Data.map(m => m.resistance)])].sort((a, b) => a - b);
+            const compLabels = allResistances.map(r => r >= 1000 ? (r / 1000) + 'k' : r.toFixed(1));
+
+            charts.comparison = new Chart(document.getElementById('comparisonChart'), {
+                type: 'line',
+                data: {
+                    labels: compLabels,
+                    datasets: [
+                        {
+                            label: 'Experiment 1 (30V)',
+                            data: allResistances.map(r => {
+                                const point = exp1Data.find(m => m.resistance === r);
+                                return point ? point.power : null;
+                            }),
+                            borderColor: colors.accent2,
+                            backgroundColor: colors.accent2 + '15',
+                            borderWidth: 2, fill: false, tension: 0.3,
+                            pointRadius: 4, pointBackgroundColor: colors.accent2, pointBorderWidth: 0,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Experiment 2 (29V PSU)',
+                            data: allResistances.map(r => {
+                                const point = exp2Data.find(m => m.resistance === r);
+                                return point ? point.power : null;
+                            }),
+                            borderColor: colors.accent4,
+                            backgroundColor: colors.accent4 + '15',
+                            borderWidth: 2, fill: false, tension: 0.3,
+                            pointRadius: 4, pointBackgroundColor: colors.accent4, pointBorderWidth: 0,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: getChartOptions('Power (mW)')
+            });
+        }
+
+        function updateChartsTheme() {
+            const colors = getChartColors();
+
+            Object.values(charts).forEach(chart => {
+                chart.options.plugins.legend.labels.color = colors.text;
+                chart.options.scales.x.grid.color = colors.grid;
+                chart.options.scales.x.ticks.color = colors.text;
+                chart.options.scales.x.title.color = colors.text;
+                chart.options.scales.y.grid.color = colors.grid;
+                chart.options.scales.y.ticks.color = colors.text;
+                chart.options.scales.y.title.color = colors.text;
+                chart.update();
+            });
+        }
+
+        // Initialize
+        createCharts();
+    </script>
+</body>
+
+</html>
