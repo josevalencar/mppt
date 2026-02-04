@@ -1,6 +1,6 @@
-# Solar Panel Maximum Power Point Analysis
+# Solar Panel Maximum Power Point Transfer Analysis
 
-Interactive data visualization for solar panel experiments measuring voltage, current, and power across varying load resistances to identify the maximum power point (MPP).
+Interactive data visualization for solar panel experiments measuring voltage, current, and power across varying load resistances to identify the maximum power point (MPPT).
 
 ## Overview
 
