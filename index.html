@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solar Panel Experiments - Maximum Power Point</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -235,6 +236,16 @@
             box-shadow: var(--shadow);
         }
 
+        .stat-box.highlight {
+            background: linear-gradient(135deg, rgba(13,148,136,0.06), rgba(37,99,235,0.06));
+            border-color: var(--accent-2);
+        }
+
+        [data-theme="dark"] .stat-box.highlight {
+            background: linear-gradient(135deg, rgba(45,212,191,0.1), rgba(96,165,250,0.08));
+            border-color: var(--accent-2);
+        }
+
         .stat-value {
             font-size: 1.5rem;
             font-weight: 700;
@@ -244,6 +255,24 @@
         }
 
         .exp2 .stat-value {
+            color: var(--accent-4);
+        }
+
+        .stat-box.highlight .stat-value {
+            color: var(--accent-2);
+        }
+
+        .exp2 .stat-box.highlight {
+            background: linear-gradient(135deg, rgba(217,119,6,0.06), rgba(220,38,38,0.06));
+            border-color: var(--accent-4);
+        }
+
+        [data-theme="dark"] .exp2 .stat-box.highlight {
+            background: linear-gradient(135deg, rgba(251,191,36,0.1), rgba(248,113,113,0.08));
+            border-color: var(--accent-4);
+        }
+
+        .exp2 .stat-box.highlight .stat-value {
             color: var(--accent-4);
         }
 
@@ -294,13 +323,47 @@
             background: var(--bg-primary);
         }
 
+        .peak-row {
+            background: rgba(13,148,136,0.07);
+        }
+
         .peak-row td {
             color: var(--accent-2);
             font-weight: 600;
         }
 
+        .peak-row td:first-child {
+            box-shadow: inset 3px 0 0 var(--accent-2);
+        }
+
+        .exp2 .peak-row {
+            background: rgba(217,119,6,0.07);
+        }
+
         .exp2 .peak-row td {
             color: var(--accent-4);
+        }
+
+        .exp2 .peak-row td:first-child {
+            box-shadow: inset 3px 0 0 var(--accent-4);
+        }
+
+        .peak-label {
+            display: inline-block;
+            background: var(--accent-2);
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            vertical-align: middle;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .exp2 .peak-label {
+            background: var(--accent-4);
         }
 
         /* Experiment Panel */
@@ -403,13 +466,13 @@
                     <div class="stat-value" id="exp1SourceR">--</div>
                     <div class="stat-label">Est. Source R (Ω)</div>
                 </div>
-                <div class="stat-box">
+                <div class="stat-box highlight">
                     <div class="stat-value" id="exp1MaxPower">--</div>
                     <div class="stat-label">Max Power (mW)</div>
                 </div>
-                <div class="stat-box">
+                <div class="stat-box highlight">
                     <div class="stat-value" id="exp1OptimalR">--</div>
-                    <div class="stat-label">Optimal R (Ω)</div>
+                    <div class="stat-label">Optimal R (&Omega;)</div>
                 </div>
             </div>
 
@@ -465,13 +528,13 @@
                     <div class="stat-value" id="exp2SourceR">--</div>
                     <div class="stat-label">Est. Source R (Ω)</div>
                 </div>
-                <div class="stat-box">
+                <div class="stat-box highlight">
                     <div class="stat-value" id="exp2MaxPower">--</div>
                     <div class="stat-label">Max Power (mW)</div>
                 </div>
-                <div class="stat-box">
+                <div class="stat-box highlight">
                     <div class="stat-value" id="exp2OptimalR">--</div>
-                    <div class="stat-label">Optimal R (Ω)</div>
+                    <div class="stat-label">Optimal R (&Omega;)</div>
                 </div>
             </div>
 
@@ -651,10 +714,10 @@
             tbody.innerHTML = data.map((m, i) => `
                 <tr class="${m === peak ? 'peak-row' : ''}">
                     <td>${i + 1}</td>
-                    <td>${m.resistance >= 1000 ? (m.resistance / 1000).toFixed(2) + ' kΩ' : m.resistance.toFixed(2) + ' Ω'}</td>
+                    <td>${m.resistance >= 1000 ? (m.resistance / 1000).toFixed(2) + ' k\u03A9' : m.resistance.toFixed(2) + ' \u03A9'}</td>
                     <td>${m.voltage.toFixed(3)} V</td>
                     <td>${m.current.toFixed(2)} mA</td>
-                    <td>${m.power.toFixed(2)} mW</td>
+                    <td>${m.power.toFixed(2)} mW${m === peak ? ' <span class="peak-label">\u2605 MPP</span>' : ''}</td>
                 </tr>
             `).join('');
         }
@@ -705,13 +768,41 @@
             };
         }
 
-        // Create charts
+        function getPeakAnnotation(peakIndex, peakPower, accentColor) {
+            return {
+                annotation: {
+                    annotations: {
+                        peakLine: {
+                            type: 'line',
+                            xMin: peakIndex,
+                            xMax: peakIndex,
+                            borderColor: accentColor,
+                            borderWidth: 1.5,
+                            borderDash: [4, 4],
+                        },
+                        peakLabel: {
+                            type: 'label',
+                            xValue: peakIndex,
+                            yValue: peakPower,
+                            yAdjust: -20,
+                            content: '\u2605 MPP: ' + peakPower.toFixed(1) + ' mW',
+                            color: accentColor,
+                            font: { family: "'Inter', sans-serif", size: 11, weight: '600' },
+                            backgroundColor: 'rgba(255,255,255,0)',
+                        }
+                    }
+                }
+            };
+        }
+
         let charts = {};
 
         function createCharts() {
             const colors = getChartColors();
             const exp1Labels = exp1Data.map(m => m.resistance >= 1000 ? (m.resistance / 1000) + 'k' : m.resistance.toFixed(1));
             const exp2Labels = exp2Data.map(m => m.resistance >= 1000 ? (m.resistance / 1000) + 'k' : m.resistance.toFixed(1));
+            const exp1PeakIdx = exp1Data.indexOf(exp1Peak);
+            const exp2PeakIdx = exp2Data.indexOf(exp2Peak);
 
             // Experiment 1 Charts
             charts.exp1Voltage = new Chart(document.getElementById('exp1VoltageChart'), {
@@ -723,7 +814,7 @@
                         data: exp1Data.map(m => m.voltage),
                         borderColor: colors.accent1,
                         backgroundColor: colors.accent1 + '20',
-                        borderWidth: 2, fill: true, tension: 0.3,
+                        borderWidth: 2, fill: true, tension: 0,
                         pointRadius: 4, pointBackgroundColor: colors.accent1, pointBorderWidth: 0
                     }]
                 },
@@ -739,7 +830,7 @@
                         data: exp1Data.map(m => m.current),
                         borderColor: colors.accent3,
                         backgroundColor: colors.accent3 + '20',
-                        borderWidth: 2, fill: true, tension: 0.3,
+                        borderWidth: 2, fill: true, tension: 0,
                         pointRadius: 4, pointBackgroundColor: colors.accent3, pointBorderWidth: 0
                     }]
                 },
@@ -754,12 +845,15 @@
                         label: 'Power (mW)',
                         data: exp1Data.map(m => m.power),
                         borderColor: colors.accent2,
-                        backgroundColor: colors.accent2 + '20',
-                        borderWidth: 2, fill: true, tension: 0.3,
-                        pointRadius: 5, pointBackgroundColor: colors.accent2, pointBorderWidth: 0
+                        backgroundColor: colors.accent2 + '15',
+                        borderWidth: 2, fill: true, tension: 0,
+                        pointRadius: exp1Data.map((m, i) => i === exp1PeakIdx ? 8 : 4),
+                        pointBackgroundColor: exp1Data.map((m, i) => i === exp1PeakIdx ? colors.accent2 : colors.accent2),
+                        pointBorderWidth: exp1Data.map((m, i) => i === exp1PeakIdx ? 3 : 0),
+                        pointBorderColor: colors.accent2 + '40',
                     }]
                 },
-                options: getChartOptions('Power (mW)')
+                options: { ...getChartOptions('Power (mW)'), plugins: { ...getChartOptions('Power (mW)').plugins, ...getPeakAnnotation(exp1PeakIdx, exp1Peak.power, colors.accent2) } }
             });
 
             // Experiment 2 Charts
@@ -772,7 +866,7 @@
                         data: exp2Data.map(m => m.voltage),
                         borderColor: colors.accent1,
                         backgroundColor: colors.accent1 + '20',
-                        borderWidth: 2, fill: true, tension: 0.3,
+                        borderWidth: 2, fill: true, tension: 0,
                         pointRadius: 4, pointBackgroundColor: colors.accent1, pointBorderWidth: 0
                     }]
                 },
@@ -788,7 +882,7 @@
                         data: exp2Data.map(m => m.current),
                         borderColor: colors.accent3,
                         backgroundColor: colors.accent3 + '20',
-                        borderWidth: 2, fill: true, tension: 0.3,
+                        borderWidth: 2, fill: true, tension: 0,
                         pointRadius: 4, pointBackgroundColor: colors.accent3, pointBorderWidth: 0
                     }]
                 },
@@ -803,12 +897,15 @@
                         label: 'Power (mW)',
                         data: exp2Data.map(m => m.power),
                         borderColor: colors.accent4,
-                        backgroundColor: colors.accent4 + '20',
-                        borderWidth: 2, fill: true, tension: 0.3,
-                        pointRadius: 5, pointBackgroundColor: colors.accent4, pointBorderWidth: 0
+                        backgroundColor: colors.accent4 + '15',
+                        borderWidth: 2, fill: true, tension: 0,
+                        pointRadius: exp2Data.map((m, i) => i === exp2PeakIdx ? 8 : 4),
+                        pointBackgroundColor: exp2Data.map((m, i) => i === exp2PeakIdx ? colors.accent4 : colors.accent4),
+                        pointBorderWidth: exp2Data.map((m, i) => i === exp2PeakIdx ? 3 : 0),
+                        pointBorderColor: colors.accent4 + '40',
                     }]
                 },
-                options: getChartOptions('Power (mW)')
+                options: { ...getChartOptions('Power (mW)'), plugins: { ...getChartOptions('Power (mW)').plugins, ...getPeakAnnotation(exp2PeakIdx, exp2Peak.power, colors.accent4) } }
             });
 
             // Comparison Chart
@@ -828,7 +925,7 @@
                             }),
                             borderColor: colors.accent2,
                             backgroundColor: colors.accent2 + '15',
-                            borderWidth: 2, fill: false, tension: 0.3,
+                            borderWidth: 2, fill: false, tension: 0,
                             pointRadius: 4, pointBackgroundColor: colors.accent2, pointBorderWidth: 0,
                             spanGaps: true
                         },
@@ -840,7 +937,7 @@
                             }),
                             borderColor: colors.accent4,
                             backgroundColor: colors.accent4 + '15',
-                            borderWidth: 2, fill: false, tension: 0.3,
+                            borderWidth: 2, fill: false, tension: 0,
                             pointRadius: 4, pointBackgroundColor: colors.accent4, pointBorderWidth: 0,
                             spanGaps: true
                         }
