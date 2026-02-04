@@ -14,3 +14,7 @@ Each experiment plots voltage, current, and power vs. load resistance, with a co
 ## Key Result
 
 Both experiments confirm the **Maximum Power Transfer Theorem**: peak power delivery occurs when the load resistance matches the solar panel's internal resistance (~16--20 &Omega;), regardless of illumination intensity.
+
+## Author
+
+Jose Vitor Alencar -- Technology of Renewable Energy (PHYS243), Clark University, Prof. Charles Agosta
