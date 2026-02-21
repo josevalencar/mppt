@@ -206,7 +206,7 @@
 
         .chart-container {
             position: relative;
-            height: 280px;
+            height: 340px;
         }
 
         .full-width {
@@ -753,9 +753,11 @@
 
         function getChartOptions(yLabel) {
             const colors = getChartColors();
+            const unit = yLabel.match(/\(([^)]+)\)/)?.[1] || '';
             return {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
                     legend: {
                         labels: {
@@ -764,44 +766,73 @@
                             boxWidth: 12,
                             padding: 16
                         }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: function(items) {
+                                const r = items[0].parsed.x;
+                                return 'R = ' + (r >= 1000 ? (r / 1000).toFixed(2) + ' k\u03A9' : r + ' \u03A9');
+                            },
+                            label: function(item) {
+                                return ' ' + item.dataset.label + ': ' + item.parsed.y.toFixed(3) + ' ' + unit;
+                            }
+                        }
                     }
                 },
                 scales: {
                     x: {
+                        type: 'linear',
                         grid: { color: colors.grid, drawBorder: false },
-                        ticks: { color: colors.text, font: { family: "'Inter', sans-serif", size: 11 } },
-                        title: { display: true, text: 'Resistance (\u03A9)', color: colors.text, font: { family: "'Inter', sans-serif", size: 12 } }
+                        ticks: {
+                            color: colors.text,
+                            font: { family: "'Inter', sans-serif", size: 11 },
+                            callback: function(value) {
+                                return value >= 1000 ? (value / 1000) + 'k\u03A9' : value + '\u03A9';
+                            }
+                        },
+                        title: { display: true, text: 'Resistance (\u03A9)', color: colors.text, font: { family: "'Inter', sans-serif", size: 12, weight: '500' } },
+                        afterDataLimits: function(scale) {
+                            const range = scale.max - scale.min;
+                            scale.min = Math.max(0, scale.min - range * 0.04);
+                            scale.max += range * 0.04;
+                        }
                     },
                     y: {
                         grid: { color: colors.grid, drawBorder: false },
                         ticks: { color: colors.text, font: { family: "'Inter', sans-serif", size: 11 } },
-                        title: { display: true, text: yLabel, color: colors.text, font: { family: "'Inter', sans-serif", size: 12 } }
+                        title: { display: true, text: yLabel, color: colors.text, font: { family: "'Inter', sans-serif", size: 12, weight: '500' } },
+                        afterDataLimits: function(scale) { scale.max *= 1.2; }
                     }
                 }
             };
         }
 
-        function getPeakAnnotation(peakIndex, peakPower, accentColor) {
+        function getPeakAnnotation(peakResistance, peakPower, accentColor) {
             return {
                 annotation: {
                     annotations: {
                         peakLine: {
                             type: 'line',
-                            xMin: peakIndex,
-                            xMax: peakIndex,
+                            xMin: peakResistance,
+                            xMax: peakResistance,
                             borderColor: accentColor,
                             borderWidth: 1.5,
                             borderDash: [4, 4],
                         },
                         peakLabel: {
                             type: 'label',
-                            xValue: peakIndex,
+                            xValue: peakResistance,
                             yValue: peakPower,
-                            yAdjust: -20,
-                            content: '\u2605 MPP: ' + peakPower.toFixed(1) + ' mW',
+                            xAdjust: 60,
+                            yAdjust: -10,
+                            content: ['\u2605 MPP', peakPower.toFixed(2) + ' mW'],
                             color: accentColor,
-                            font: { family: "'Inter', sans-serif", size: 11, weight: '600' },
-                            backgroundColor: 'rgba(255,255,255,0)',
+                            font: { family: "'Inter', sans-serif", size: 11, weight: '700' },
+                            backgroundColor: 'rgba(255,255,255,0.92)',
+                            borderColor: accentColor,
+                            borderWidth: 1,
+                            borderRadius: 5,
+                            padding: { top: 4, bottom: 4, left: 8, right: 8 },
                         }
                     }
                 }
@@ -812,8 +843,6 @@
 
         function createCharts() {
             const colors = getChartColors();
-            const exp1Labels = exp1Data.map(m => m.resistance >= 1000 ? (m.resistance / 1000) + 'k' : m.resistance.toFixed(1));
-            const exp2Labels = exp2Data.map(m => m.resistance >= 1000 ? (m.resistance / 1000) + 'k' : m.resistance.toFixed(1));
             const exp1PeakIdx = exp1Data.indexOf(exp1Peak);
             const exp2PeakIdx = exp2Data.indexOf(exp2Peak);
 
@@ -821,14 +850,14 @@
             charts.exp1Voltage = new Chart(document.getElementById('exp1VoltageChart'), {
                 type: 'line',
                 data: {
-                    labels: exp1Labels,
                     datasets: [{
                         label: 'Voltage (V)',
-                        data: exp1Data.map(m => m.voltage),
+                        data: exp1Data.map(m => ({ x: m.resistance, y: m.voltage })),
                         borderColor: colors.accent1,
-                        backgroundColor: colors.accent1 + '20',
-                        borderWidth: 2, fill: true, tension: 0,
-                        pointRadius: 4, pointBackgroundColor: colors.accent1, pointBorderWidth: 0
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.5, fill: false, tension: 0,
+                        pointRadius: 3.5, pointBackgroundColor: colors.accent1, pointBorderWidth: 0,
+                        pointHoverRadius: 6
                     }]
                 },
                 options: getChartOptions('Voltage (V)')
@@ -837,14 +866,14 @@
             charts.exp1Current = new Chart(document.getElementById('exp1CurrentChart'), {
                 type: 'line',
                 data: {
-                    labels: exp1Labels,
                     datasets: [{
                         label: 'Current (mA)',
-                        data: exp1Data.map(m => m.current),
+                        data: exp1Data.map(m => ({ x: m.resistance, y: m.current })),
                         borderColor: colors.accent3,
-                        backgroundColor: colors.accent3 + '20',
-                        borderWidth: 2, fill: true, tension: 0,
-                        pointRadius: 4, pointBackgroundColor: colors.accent3, pointBorderWidth: 0
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.5, fill: false, tension: 0,
+                        pointRadius: 3.5, pointBackgroundColor: colors.accent3, pointBorderWidth: 0,
+                        pointHoverRadius: 6
                     }]
                 },
                 options: getChartOptions('Current (mA)')
@@ -853,34 +882,34 @@
             charts.exp1Power = new Chart(document.getElementById('exp1PowerChart'), {
                 type: 'line',
                 data: {
-                    labels: exp1Labels,
                     datasets: [{
                         label: 'Power (mW)',
-                        data: exp1Data.map(m => m.power),
+                        data: exp1Data.map(m => ({ x: m.resistance, y: m.power })),
                         borderColor: colors.accent2,
-                        backgroundColor: colors.accent2 + '15',
-                        borderWidth: 2, fill: true, tension: 0,
-                        pointRadius: exp1Data.map((m, i) => i === exp1PeakIdx ? 8 : 4),
-                        pointBackgroundColor: exp1Data.map((m, i) => i === exp1PeakIdx ? colors.accent2 : colors.accent2),
-                        pointBorderWidth: exp1Data.map((m, i) => i === exp1PeakIdx ? 3 : 0),
-                        pointBorderColor: colors.accent2 + '40',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.5, fill: false, tension: 0,
+                        pointRadius: exp1Data.map((m, i) => i === exp1PeakIdx ? 8 : 3.5),
+                        pointBackgroundColor: colors.accent2,
+                        pointBorderWidth: exp1Data.map((m, i) => i === exp1PeakIdx ? 2 : 0),
+                        pointBorderColor: '#fff',
+                        pointHoverRadius: 8
                     }]
                 },
-                options: { ...getChartOptions('Power (mW)'), plugins: { ...getChartOptions('Power (mW)').plugins, ...getPeakAnnotation(exp1PeakIdx, exp1Peak.power, colors.accent2) } }
+                options: { ...getChartOptions('Power (mW)'), plugins: { ...getChartOptions('Power (mW)').plugins, ...getPeakAnnotation(exp1Peak.resistance, exp1Peak.power, colors.accent2) } }
             });
 
             // Experiment 2 Charts
             charts.exp2Voltage = new Chart(document.getElementById('exp2VoltageChart'), {
                 type: 'line',
                 data: {
-                    labels: exp2Labels,
                     datasets: [{
                         label: 'Voltage (V)',
-                        data: exp2Data.map(m => m.voltage),
+                        data: exp2Data.map(m => ({ x: m.resistance, y: m.voltage })),
                         borderColor: colors.accent1,
-                        backgroundColor: colors.accent1 + '20',
-                        borderWidth: 2, fill: true, tension: 0,
-                        pointRadius: 4, pointBackgroundColor: colors.accent1, pointBorderWidth: 0
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.5, fill: false, tension: 0,
+                        pointRadius: 3.5, pointBackgroundColor: colors.accent1, pointBorderWidth: 0,
+                        pointHoverRadius: 6
                     }]
                 },
                 options: getChartOptions('Voltage (V)')
@@ -889,14 +918,14 @@
             charts.exp2Current = new Chart(document.getElementById('exp2CurrentChart'), {
                 type: 'line',
                 data: {
-                    labels: exp2Labels,
                     datasets: [{
                         label: 'Current (mA)',
-                        data: exp2Data.map(m => m.current),
+                        data: exp2Data.map(m => ({ x: m.resistance, y: m.current })),
                         borderColor: colors.accent3,
-                        backgroundColor: colors.accent3 + '20',
-                        borderWidth: 2, fill: true, tension: 0,
-                        pointRadius: 4, pointBackgroundColor: colors.accent3, pointBorderWidth: 0
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.5, fill: false, tension: 0,
+                        pointRadius: 3.5, pointBackgroundColor: colors.accent3, pointBorderWidth: 0,
+                        pointHoverRadius: 6
                     }]
                 },
                 options: getChartOptions('Current (mA)')
@@ -905,54 +934,44 @@
             charts.exp2Power = new Chart(document.getElementById('exp2PowerChart'), {
                 type: 'line',
                 data: {
-                    labels: exp2Labels,
                     datasets: [{
                         label: 'Power (mW)',
-                        data: exp2Data.map(m => m.power),
+                        data: exp2Data.map(m => ({ x: m.resistance, y: m.power })),
                         borderColor: colors.accent4,
-                        backgroundColor: colors.accent4 + '15',
-                        borderWidth: 2, fill: true, tension: 0,
-                        pointRadius: exp2Data.map((m, i) => i === exp2PeakIdx ? 8 : 4),
-                        pointBackgroundColor: exp2Data.map((m, i) => i === exp2PeakIdx ? colors.accent4 : colors.accent4),
-                        pointBorderWidth: exp2Data.map((m, i) => i === exp2PeakIdx ? 3 : 0),
-                        pointBorderColor: colors.accent4 + '40',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.5, fill: false, tension: 0,
+                        pointRadius: exp2Data.map((m, i) => i === exp2PeakIdx ? 8 : 3.5),
+                        pointBackgroundColor: colors.accent4,
+                        pointBorderWidth: exp2Data.map((m, i) => i === exp2PeakIdx ? 2 : 0),
+                        pointBorderColor: '#fff',
+                        pointHoverRadius: 8
                     }]
                 },
-                options: { ...getChartOptions('Power (mW)'), plugins: { ...getChartOptions('Power (mW)').plugins, ...getPeakAnnotation(exp2PeakIdx, exp2Peak.power, colors.accent4) } }
+                options: { ...getChartOptions('Power (mW)'), plugins: { ...getChartOptions('Power (mW)').plugins, ...getPeakAnnotation(exp2Peak.resistance, exp2Peak.power, colors.accent4) } }
             });
 
             // Comparison Chart
-            const allResistances = [...new Set([...exp1Data.map(m => m.resistance), ...exp2Data.map(m => m.resistance)])].sort((a, b) => a - b);
-            const compLabels = allResistances.map(r => r >= 1000 ? (r / 1000) + 'k' : r.toFixed(1));
-
             charts.comparison = new Chart(document.getElementById('comparisonChart'), {
                 type: 'line',
                 data: {
-                    labels: compLabels,
                     datasets: [
                         {
                             label: 'Experiment 1 (30V)',
-                            data: allResistances.map(r => {
-                                const point = exp1Data.find(m => m.resistance === r);
-                                return point ? point.power : null;
-                            }),
+                            data: exp1Data.map(m => ({ x: m.resistance, y: m.power })),
                             borderColor: colors.accent2,
-                            backgroundColor: colors.accent2 + '15',
-                            borderWidth: 2, fill: false, tension: 0,
-                            pointRadius: 4, pointBackgroundColor: colors.accent2, pointBorderWidth: 0,
-                            spanGaps: true
+                            backgroundColor: 'transparent',
+                            borderWidth: 2.5, fill: false, tension: 0,
+                            pointRadius: 3.5, pointBackgroundColor: colors.accent2, pointBorderWidth: 0,
+                            pointHoverRadius: 6
                         },
                         {
                             label: 'Experiment 2 (29V PSU)',
-                            data: allResistances.map(r => {
-                                const point = exp2Data.find(m => m.resistance === r);
-                                return point ? point.power : null;
-                            }),
+                            data: exp2Data.map(m => ({ x: m.resistance, y: m.power })),
                             borderColor: colors.accent4,
-                            backgroundColor: colors.accent4 + '15',
-                            borderWidth: 2, fill: false, tension: 0,
-                            pointRadius: 4, pointBackgroundColor: colors.accent4, pointBorderWidth: 0,
-                            spanGaps: true
+                            backgroundColor: 'transparent',
+                            borderWidth: 2.5, fill: false, tension: 0,
+                            pointRadius: 3.5, pointBackgroundColor: colors.accent4, pointBorderWidth: 0,
+                            pointHoverRadius: 6
                         }
                     ]
                 },
